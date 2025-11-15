@@ -76,7 +76,7 @@
         id="rabbit"
         gltf-model="#rabbit-model"
         scale="0.01 0.01 0.01"
-        position="0 -1 -2.5" <!-- Same position, will replace the turtle -->
+        position="0 -0.5 -2.5" <!-- Same position, will replace the turtle -->
         visible="false"
         rotation="0 180 0"
       ></a-entity>
@@ -91,7 +91,7 @@
       console.log("Page loaded");
 
       // --- Configuration ---
-      const SPEED_THRESHOLD = 2; // in m/s²
+      const SPEED_THRESHOLD = 1.5; // in m/s²
 
       // --- UI Elements ---
       const startButton = document.getElementById('start-button');
