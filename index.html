@@ -17,14 +17,6 @@
     #ar-scene {
       display: none;
     }
-    /* Ensure the marker image is visible for scanning */
-    #marker-info img {
-      width: 150px;
-      height: 150px;
-      margin: 1rem auto;
-      display: block;
-      border: 4px solid white;
-    }
   </style>
 </head>
 <body class="bg-gray-900 text-white font-sans">
@@ -47,11 +39,9 @@
       <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
     </div>
     
-    <!-- Marker Info (shown after start) -->
-    <div id="marker-info" class="hidden absolute bottom-4 left-4 right-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg text-center">
-        <p>Point your camera at this 'Hiro' marker:</p>
-        <img src="https://raw.githack.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="Hiro Marker">
-    </div>
+    <!-- 
+      REMOVED the 'marker-info' div that was showing the static Hiro image.
+    -->
 
   </div>
 
@@ -59,9 +49,12 @@
   <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
 
     <!-- 4. Asset Management -->
+    <!-- **** THIS IS THE FIX **** -->
+    <!-- Now loading models from your 'sixt66n-ops/BunnyVsRabbit' repo -->
+    <!-- This will ONLY work if you uploaded the files! -->
     <a-assets>
-      <a-asset-item id="turtle-model" src="https://cdn.glitch.global/f869550b-3316-4148-81f0-0a2b1600832d/turtle.glb?v=1680188860012"></a-asset-item>
-      <a-asset-item id="rabbit-model" src="https://cdn.glitch.global/605d8f6b-7ca2-4b2c-b1a7-1710d01443f0/rabbit.glb?v=1644023531124"></a-asset-item>
+      <a-asset-item id="turtle-model" src="https://raw.githubusercontent.com/sixt66n-ops/BunnyVsRabbit/main/Turtle.glb"></a-asset-item>
+      <a-asset-item id="rabbit-model" src="https://raw.githubusercontent.com/sixt66n-ops/BunnyVsRabbit/main/Rabbit.glb"></a-asset-item>
     </a-assets>
 
     <!-- 5. Marker -->
@@ -72,7 +65,7 @@
         id="turtle"
         gltf-model="#turtle-model"
         scale="0.2 0.2 0.2"
-        position="0 0.1 0" <!-- Set position -->
+        position="0 0.1 0"
         rotation="0 0 0"
         visible="true"
       ></a-entity>
@@ -82,7 +75,7 @@
         id="rabbit"
         gltf-model="#rabbit-model"
         scale="0.015 0.015 0.015"
-        position="0 0.1 0" <!-- Now matches the turtle -->
+        position="0 0.1 0"
         rotation="0 0 0"
         visible="false"
       ></a-entity>
@@ -93,7 +86,7 @@
     <a-entity camera></a-entity>
   </a-scene>
 
-  <!-- 7. JavaScript Logic (No changes needed here) -->
+  <!-- 7. JavaScript Logic -->
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
@@ -103,7 +96,7 @@
       const startButton = document.getElementById('start-button');
       const startContainer = document.getElementById('start-container');
       const infoBox = document.getElementById('info-box');
-      const markerInfo = document.getElementById('marker-info');
+      // Removed 'markerInfo' variable
       const arScene = document.getElementById('ar-scene');
 
       // --- AR Elements ---
@@ -146,8 +139,8 @@
         // Show AR Scene and Info UI
         arScene.style.display = 'block';
         infoBox.style.display = 'block';
-        markerInfo.style.display = 'block';
-
+        // Removed 'markerInfo'
+        
         // Add the motion listener
         window.addEventListener('devicemotion', handleMotion);
       }
@@ -162,7 +155,7 @@
         }
 
         const currentSpeed = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
-        statusSpeed.textContent = currentSpeed.toFixed(2);
+        statusSpeed.textContent = currentS-peed.toFixed(2);
 
         // --- Core Logic ---
         if (currentSpeed > SPEED_THRESHOLD && !isRabbitVisible) {
@@ -174,8 +167,6 @@
           
         } else if (currentSpeed <= SPEED_THRESHOLD && isRabbitVisible) {
           // Show Turtle
-          // **** THIS IS THE FIX ****
-          // Removed extra parenthesis from ('true')
           rabbit.setAttribute('visible', 'false');
           turtle.setAttribute('visible', 'true');
           statusAnimal.textContent = 'Turtle';
