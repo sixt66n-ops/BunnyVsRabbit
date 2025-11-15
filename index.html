@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Speedy AR Pets</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- 1. Load Tailwind CSS for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 2. Load A-Frame and AR.js -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    /* Hide the A-Frame scene until the user clicks start */
+    #ar-scene {
+      display: none;
+    }
+    /* Ensure the marker image is visible for scanning */
+    #marker-info img {
+      width: 150px;
+      height: 150px;
+      margin: 1rem auto;
+      display: block;
+      border: 4px solid white;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+
+  <!-- UI Elements -->
+  <div id="ui-container" class="fixed inset-0 z-10 flex flex-col items-center justify-center p-6">
+    
+    <!-- Start Button -->
+    <div id="start-container" class="text-center">
+      <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
+      <p class="text-lg mb-6 max-w-md">Move your phone slowly to see a turtle. Move it fast to see a rabbit!</p>
+      <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
+        Start AR
+      </button>
+    </div>
+
+    <!-- Info Box (shown after start) -->
+    <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
+      <p class="text-lg font-semibold">Status: <span id="status-animal" class="font-normal">Turtle</span></p>
+      <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
+    </div>
+    
+    <!-- Marker Info (shown after start) -->
+    <div id="marker-info" class="hidden absolute bottom-4 left-4 right-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg text-center">
+        <p>Point your camera at this 'Hiro' marker:</p>
+        <img src="https://raw.githack.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="Hiro Marker">
+    </div>
+
+  </div>
+
+  <!-- 3. A-Frame AR Scene -->
+  <!-- We use `embedded` and `arjs` properties. `debugUIEnabled: false` hides the default UI. -->
+  <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+
+    <!-- 4. Asset Management -->
+    <!-- Pre-load all our 3D models for speed -->
+    <a-assets>
+      <a-asset-item id="turtle-model" src="https://cdn.glitch.global/f869550b-3316-4148-81f0-0a2b1600832d/turtle.glb?v=1680188860012"></a-asset-item>
+      <a-asset-item id="rabbit-model" src="https://cdn.glitch.global/605d8f6b-7ca2-4b2c-b1a7-1710d01443f0/rabbit.glb?v=1644023531124"></a-asset-item>
+    </a-assets>
+
+    <!-- 5. Marker -->
+    <!-- This is what AR.js will look for. We use the default 'hiro' preset. -->
+    <a-marker preset="hiro">
+      
+      <!-- Turtle Model -->
+      <!-- We scale it down and position it slightly above the marker -->
+      <a-entity
+        id="turtle"
+        gltf-model="#turtle-model"
+        scale="0.2 0.2 0.2"
+        position="0 0.1 0"
+        rotation="0 0 0"
+        visible="true"
+      ></a-entity>
+      
+      <!-- Rabbit Model -->
+      <!-- We scale it differently and make it invisible by default -->
+      <a-entity
+        id="rabbit"
+        gltf-model="#rabbit-model"
+        scale="0.015 0.015 0.015"
+        position="0 0 0"
+        rotation="0 0 0"
+        visible="false"
+      ></a-entity>
+
+    </a-marker>
+
+    <!-- 6. Camera -->
+    <!-- AR.js automatically uses the device camera -->
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <!-- 7. JavaScript Logic -->
+  <script>
+    window.addEventListener('load', () => {
+      // --- Configuration ---
+      // How fast you need to move the phone to see the rabbit.
+      // Try changing this value! Higher = less sensitive.
+      const SPEED_THRESHOLD = 3.5; // in m/s²
+
+      // --- UI Elements ---
+      const startButton = document.getElementById('start-button');
+      const startContainer = document.getElementById('start-container');
+      const infoBox = document.getElementById('info-box');
+      const markerInfo = document.getElementById('marker-info');
+      const arScene = document.getElementById('ar-scene');
+
+      // --- AR Elements ---
+      const turtle = document.getElementById('turtle');
+      const rabbit = document.getElementById('rabbit');
+      
+      // --- Status Elements ---
+      const statusSpeed = document.getElementById('status-speed');
+      const statusAnimal = document.getElementById('status-animal');
+
+      let isRabbitVisible = false;
+
+      // --- Start Button Click ---
+      startButton.addEventListener('click', () => {
+        // Request motion sensor permission (especially for iOS 13+)
+        requestDeviceMotionPermission();
+      });
+
+      function requestDeviceMotionPermission() {
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          // iOS 13+
+          DeviceMotionEvent.requestPermission()
+            .then(permissionState => {
+              if (permissionState === 'granted') {
+                // Permission granted
+                startApp();
+              } else {
+                // Permission denied
+                alert('Motion sensor permission is required to run this app.');
+              }
+            })
+            .catch(console.error);
+        } else {
+          // Non-iOS 13+ devices
+          startApp();
+        }
+      }
+
+      function startApp() {
+        // Hide start UI
+        startContainer.style.display = 'none';
+        
+        // Show AR Scene and Info UI
+        arScene.style.display = 'block';
+        infoBox.style.display = 'block';
+        markerInfo.style.display = 'block';
+
+        // Add the motion listener
+        window.addEventListener('devicemotion', handleMotion);
+      }
+
+      // --- Motion Handling ---
+      function handleMotion(event) {
+        // Get acceleration data. 'acceleration' is preferred as it excludes gravity.
+        // Fall back to 'accelerationIncludingGravity' if 'acceleration' is not available.
+        const acc = event.acceleration || event.accelerationIncludingGravity;
+
+        if (!acc || acc.x === null) {
+          statusSpeed.textContent = 'N/A';
+          return;
+        }
+
+        // Calculate the magnitude of the acceleration (how fast the phone is moving)
+        // We use Math.abs() to simplify and just get total movement on any axis.
+        const currentSpeed = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+
+        // Update the info box
+        statusSpeed.textContent = currentSpeed.toFixed(2);
+
+        // --- Core Logic ---
+        if (currentSpeed > SPEED_THRESHOLD && !isRabbitVisible) {
+          // Show Rabbit
+          rabbit.setAttribute('visible', 'true');
+          turtle.setAttribute('visible', 'false');
+          statusAnimal.textContent = 'Rabbit';
+          isRabbitVisible = true;
+          
+        } else if (currentSpeed <= SPEED_THRESHOLD && isRabbitVisible) {
+          // Show Turtle
+          rabbit.setAttribute('visible', 'false');
+          turtle.setAttribute('visible', 'true');
+          statusAnimal.textContent = 'Turtle';
+          isRabbitVisible = false;
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>
