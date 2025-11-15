@@ -8,31 +8,19 @@
   <!-- 1. Load Tailwind CSS for styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- 2. Load A-Frame and AR.js -->
+  <!-- 2. Load A-Frame (AR.js is NO LONGER NEEDED) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.min.js"></script>
 
   <style>
     /* Hide the A-Frame scene until the user clicks start */
     #ar-scene {
       display: none;
     }
-    /* Ensure the marker image is visible for scanning */
-    #marker-info img {
-      width: 150px;
-      height: 150px;
-      margin: 1rem auto;
-      display: block;
-      border: 4px solid white;
-    }
   </style>
 </head>
 <body class="bg-gray-900 text-white font-sans">
 
-  <!-- **** HTML STRUCTURE FIX **** -->
-
   <!-- Start Screen UI -->
-  <!-- This container will be hidden. It has a high z-index to be on top. -->
   <div id="ui-container" class="fixed inset-0 z-20 flex flex-col items-center justify-center p-6 bg-gray-900 bg-opacity-90">
     <div id="start-container" class="text-center">
       <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
@@ -44,36 +32,35 @@
   </div>
 
   <!-- In-Game UI -->
-  <!-- These are now separate and will be shown. They have a lower z-index. -->
   <div id="info-box" class="hidden fixed z-10 top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
     <p class="text-lg font-semibold">Status: <span id="status-animal" class="font-normal">Turtle</span></p>
     <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
   </div>
-  
-  <div id="marker-info" class="hidden fixed z-10 bottom-4 left-4 right-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg text-center">
-      <p>Point your camera at this 'Hiro' marker:</p>
-      <img src="https://raw.githack.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="Hiro Marker">
-  </div>
 
-  <!-- 3. A-Frame AR Scene -->
-  <!-- This will be visible in the background (default z-index) -->
-  <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-
+  <!-- 3. A-Frame Scene (NO MARKER) -->
+  <a-scene 
+    id="ar-scene" 
+    loading-screen="dotsColor: white; backgroundColor: #222"
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;"
+  >
     <!-- 4. Asset Management -->
     <a-assets>
       <a-asset-item id="turtle-model" src="https://cdn.glitch.global/f869550b-3316-4148-81f0-0a2b1600832d/turtle.glb?v=1680188860012"></a-asset-item>
       <a-asset-item id="rabbit-model" src="https://cdn.glitch.global/605d8f6b-7ca2-4b2c-b1a7-1710d01443f0/rabbit.glb?v=1644023531124"></a-asset-item>
     </a-assets>
 
-    <!-- 5. Marker -->
-    <a-marker preset="hiro">
+    <!-- 5. Camera -->
+    <!-- We add the models as CHILDREN of the camera. -->
+    <!-- This makes them "stick" to your view. -->
+    <a-entity camera="active: true" position="0 0 0" wasd-controls-enabled="false">
       
       <!-- Turtle Model -->
       <a-entity
         id="turtle"
         gltf-model="#turtle-model"
-        scale="0.2 0.2 0.2"
-        position="0 0.1 0"
+        scale="0.3 0.3 0.3"
+        position="0 -0.5 -1.5" <!-- Positioned in front of the camera -->
         rotation="0 0 0"
         visible="true"
       ></a-entity>
@@ -82,16 +69,14 @@
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
-        scale="0.015 0.015 0.015"
-        position="0 0.1 0"
+        scale="0.02 0.02 0.02" <!-- Rabbit model is a different size -->
+        position="0 -0.5 -1.5" <!-- SAME position as the turtle -->
         rotation="0 0 0"
         visible="false"
       ></a-entity>
 
-    </a-marker>
+    </a-entity>
 
-    <!-- 6. Camera -->
-    <a-entity camera></a-entity>
   </a-scene>
 
   <!-- 7. JavaScript Logic -->
@@ -101,14 +86,11 @@
       const SPEED_THRESHOLD = 3.5; // in m/s²
 
       // --- UI Elements ---
-      // **** JAVASCRIPT FIX ****
-      // Get the whole UI container
       const uiContainer = document.getElementById('ui-container'); 
-      
       const startButton = document.getElementById('start-button');
       const infoBox = document.getElementById('info-box');
-      const markerInfo = document.getElementById('marker-info');
       const arScene = document.getElementById('ar-scene');
+      // The marker-info box is GONE
 
       // --- AR Elements ---
       const turtle = document.getElementById('turtle');
@@ -122,6 +104,7 @@
 
       // --- Start Button Click ---
       startButton.addEventListener('click', () => {
+        // We still need permission to get motion data
         requestDeviceMotionPermission();
       });
 
@@ -144,14 +127,12 @@
       }
 
       function startApp() {
-        // **** JAVASCRIPT FIX ****
         // Hide the *entire* start UI container
         uiContainer.style.display = 'none';
         
         // Show AR Scene and Info UI
         arScene.style.display = 'block';
         infoBox.style.display = 'block';
-        markerInfo.style.display = 'block';
 
         // Add the motion listener
         window.addEventListener('devicemotion', handleMotion);
