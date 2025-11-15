@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Markerless AR Pets</title>
+  <title>Speedy AR Pets</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
@@ -17,17 +17,17 @@
     #ar-scene {
       display: none;
     }
+    /* Ensure the marker image is visible for scanning */
+    #marker-info img {
+      width: 150px;
+      height: 150px;
+      margin: 1rem auto;
+      display: block;
+      border: 4px solid white;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white font-sans">
-
-  <!-- 3. Asset Management -->
-  <!-- *** CORRECTION: *** -->
-  <!-- Now loading the models from your local repository. -->
-  <a-assets>
-    <a-asset-item id="turtle-model" src="Turtle.glb"></a-asset-item>
-    <a-asset-item id="rabbit-model" src="Rabbit.glb"></a-asset-item>
-  </a-assets>
 
   <!-- UI Elements -->
   <div id="ui-container" class="fixed inset-0 z-10 flex flex-col items-center justify-center p-6">
@@ -35,17 +35,10 @@
     <!-- Start Button -->
     <div id="start-container" class="text-center">
       <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
-      <!-- Updated the description text -->
       <p class="text-lg mb-6 max-w-md">Move your phone slowly to see a turtle. Move it fast to see a rabbit!</p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start AR
       </button>
-    </div>
-
-    <!-- Error Message (Replaces the 'alert') -->
-    <div id="error-container" class="hidden text-center max-w-md">
-        <h2 class="text-2xl font-bold mb-4 text-red-500">Permission Required</h2>
-        <p class="text-lg">Motion sensor permission is required to run this app. Please reload the page and grant permission when asked.</p>
     </div>
 
     <!-- Info Box (shown after start) -->
@@ -54,51 +47,65 @@
       <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
     </div>
     
+    <!-- Marker Info (shown after start) -->
+    <div id="marker-info" class="hidden absolute bottom-4 left-4 right-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg text-center">
+        <p>Point your camera at this 'Hiro' marker:</p>
+        <img src="https://raw.githack.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" alt="Hiro Marker">
+    </div>
+
   </div>
 
-  <!-- 4. A-Frame AR Scene -->
+  <!-- 3. A-Frame AR Scene -->
   <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- 5. Camera -->
-    <!-- The objects are children of the camera, so they are "stuck" to your view. -->
-    <a-entity camera>
+    <!-- 4. Asset Management -->
+    <a-assets>
+      <a-asset-item id="turtle-model" src="https://cdn.glitch.global/f869550b-3316-4148-81f0-0a2b1600832d/turtle.glb?v=1680188860012"></a-asset-item>
+      <a-asset-item id="rabbit-model" src="https://cdn.glitch.global/605d8f6b-7ca2-4b2c-b1a7-1710d01443f0/rabbit.glb?v=1644023531124"></a-asset-item>
+    </a-assets>
+
+    <!-- 5. Marker -->
+    <a-marker preset="hiro">
       
       <!-- Turtle Model -->
       <a-entity
         id="turtle"
         gltf-model="#turtle-model"
-        scale="0.1 0.1 0.1"
-        position="0 -0.75 -2.5" <!-- X Y Z: 0=center, -0.75=down, -2.5= in front -->
+        scale="0.2 0.2 0.2"
+        position="0 0.1 0" <!-- Set position -->
+        rotation="0 0 0"
         visible="true"
       ></a-entity>
       
       <!-- Rabbit Model -->
+      <!-- **** THIS IS THE FIX **** -->
+      <!-- Set position to be THE SAME as the turtle's -->
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
-        scale="0.03 0.03 0.03"
-        position="0 -0.75 -2.5" <!-- Same position, will replace the turtle -->
-        rotation="0 180 0" <!-- Rotate 180deg to face you -->
+        scale="0.015 0.015 0.015"
+        position="0 0.1 0" <!-- Now matches the turtle -->
+        rotation="0 0 0"
         visible="false"
       ></a-entity>
 
-    </a-entity>
-    
+    </a-marker>
+
+    <!-- 6. Camera -->
+    <a-entity camera></a-entity>
   </a-scene>
 
-  <!-- 6. JavaScript Logic -->
+  <!-- 7. JavaScript Logic (No changes needed here) -->
   <script>
     window.addEventListener('load', () => {
-      console.log("Page loaded");
-
       // --- Configuration ---
       const SPEED_THRESHOLD = 3.5; // in m/s²
 
       // --- UI Elements ---
       const startButton = document.getElementById('start-button');
       const startContainer = document.getElementById('start-container');
-      const errorContainer = document.getElementById('error-container'); // Get the new error box
       const infoBox = document.getElementById('info-box');
+      const markerInfo = document.getElementById('marker-info');
       const arScene = document.getElementById('ar-scene');
 
       // --- AR Elements ---
@@ -113,48 +120,35 @@
 
       // --- Start Button Click ---
       startButton.addEventListener('click', () => {
-        console.log("Start button clicked");
         requestDeviceMotionPermission();
       });
 
       function requestDeviceMotionPermission() {
-        console.log("Requesting motion permission...");
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           // iOS 13+
           DeviceMotionEvent.requestPermission()
             .then(permissionState => {
-              console.log("Permission state:", permissionState);
               if (permissionState === 'granted') {
                 startApp();
               } else {
-                // **FIX:** Replaced alert() with a non-blocking UI message
-                console.error('Motion sensor permission was not granted.');
-                startContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
+                alert('Motion sensor permission is required to run this app.');
               }
             })
-            .catch(err => {
-                console.error("Error requesting motion permission:", err);
-                // Show error message on any other error
-                startContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
-                errorContainer.querySelector('p').textContent = 'An error occurred while requesting permissions. Please try again.';
-            });
+            .catch(console.error);
         } else {
           // Non-iOS 13+ devices
-          console.log("Not an iOS 13+ device, or no permission function. Starting app directly.");
           startApp();
         }
       }
 
       function startApp() {
-        console.log("Starting app...");
         // Hide start UI
         startContainer.style.display = 'none';
         
         // Show AR Scene and Info UI
         arScene.style.display = 'block';
         infoBox.style.display = 'block';
+        markerInfo.style.display = 'block';
 
         // Add the motion listener
         window.addEventListener('devicemotion', handleMotion);
@@ -162,52 +156,30 @@
 
       // --- Motion Handling ---
       function handleMotion(event) {
-        // **FIX:** Added a try...catch block to catch any errors inside this high-frequency
-        // event handler, which may be the source of the "Script error".
-        try {
-          const acc = event.acceleration || event.accelerationIncludingGravity;
+        const acc = event.acceleration || event.accelerationIncludingGravity;
 
-          if (!acc || acc.x === null) {
-            // Only log this once
-            if (statusSpeed && statusSpeed.textContent !== 'N/A') { // Check if statusSpeed exists
-              console.warn("Motion sensor data is null or N/A.");
-              statusSpeed.textContent = 'N/A';
-            }
-            return;
-          }
+        if (!acc || acc.x === null) {
+          statusSpeed.textContent = 'N/A';
+          return;
+        }
 
-          // **FIX:** Ensure x, y, and z are numbers before doing math
-          // This prevents Math.abs(undefined) which results in NaN.
-          const x = acc.x || 0;
-          const y = acc.y || 0;
-          const z = acc.z || 0;
+        const currentSpeed = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+        statusSpeed.textContent = currentSpeed.toFixed(2);
 
-          const currentSpeed = Math.abs(x) + Math.abs(y) + Math.abs(z);
+        // --- Core Logic ---
+        if (currentSpeed > SPEED_THRESHOLD && !isRabbitVisible) {
+          // Show Rabbit
+          rabbit.setAttribute('visible', 'true');
+          turtle.setAttribute('visible', 'false');
+          statusAnimal.textContent = 'Rabbit';
+          isRabbitVisible = true;
           
-          // **FIX:** Check if statusSpeed element exists before trying to set its property
-          if (statusSpeed) {
-              statusSpeed.textContent = currentSpeed.toFixed(2);
-          }
-
-          // --- Core Logic ---
-          // **FIX:** Check if elements exist before changing attributes
-          if (currentSpeed > SPEED_THRESHOLD && !isRabbitVisible) {
-            // Show Rabbit
-            if (rabbit) rabbit.setAttribute('visible', 'true');
-            if (turtle) turtle.setAttribute('visible', 'false');
-            if (statusAnimal) statusAnimal.textContent = 'Rabbit';
-            isRabbitVisible = true;
-            
-          } else if (currentSpeed <= SPEED_THRESHOLD && isRabbitVisible) {
-            // Show Turtle
-            if (rabbit) rabbit.setAttribute('visible', 'false');
-            if (turtle) turtle.setAttribute('visible', 'true');
-            if (statusAnimal) statusAnimal.textContent = 'Turtle';
-            isRabbitVisible = false;
-          }
-        } catch (err) {
-            console.error("Error inside handleMotion:", err);
-            // We can log the error without stopping the whole app.
+        } else if (currentSpeed <= SPEED_THRESHOLD && isRabbitVisible) {
+          // Show Turtle
+          rabbit.setAttribute('visible', 'false');
+          turtle.setAttribute('visible',('true');
+          statusAnimal.textContent = 'Turtle';
+          isRabbitVisible = false;
         }
       }
     });
