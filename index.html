@@ -22,7 +22,6 @@
 <body class="bg-gray-900 text-white font-sans">
 
   <!-- 3. Asset Management -->
-  <!-- *** CORRECTION: *** -->
   <!-- Now loading the models from your local repository. -->
   <a-assets>
     <a-asset-item id="turtle-model" src="Turtle.glb"></a-asset-item>
@@ -51,7 +50,7 @@
     <!-- Info Box (shown after start) -->
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
       <p class="text-lg font-semibold">Status: <span id="status-animal" class="font-normal">Turtle</span></p>
-      <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
+      <p class="text-sm">Acceleration: <span id="status-speed">0.1</span> m/s²</p>
     </div>
     
   </div>
@@ -91,7 +90,7 @@
       console.log("Page loaded");
 
       // --- Configuration ---
-      const SPEED_THRESHOLD = 3.5; // in m/s²
+      const SPEED_THRESHOLD = 2.5; // in m/s²
 
       // --- UI Elements ---
       const startButton = document.getElementById('start-button');
