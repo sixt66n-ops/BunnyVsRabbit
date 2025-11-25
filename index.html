@@ -17,13 +17,19 @@
   <a-assets>
     <a-asset-item id="turtle-model" src="Turtle.glb"></a-asset-item>
     <a-asset-item id="rabbit-model" src="Rabbit.glb"></a-asset-item>
+    <a-asset-item id="pokeball-model" src="pokeball.glb"></a-asset-item>
+    <a-asset-item id="charmander-model" src="charmander.glb"></a-asset-item>
   </a-assets>
 
   <div id="ui-container" class="fixed inset-0 z-10 flex flex-col items-center justify-center p-6">
     
     <div id="start-container" class="text-center">
-      <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
-      <p class="text-lg mb-6 max-w-md">Shake phone <b>SIDEWAYS</b> for Rabbit.<br>Move Up/Down does nothing.</p>
+      <h1 class="text-3xl font-bold mb-4">Pokemon AR</h1>
+      <p class="text-lg mb-6 max-w-md">
+        ↔️ <b>Shake Side:</b> Rabbit<br>
+        ⬇️ <b>Punch Down:</b> Pokeball (Capture)<br>
+        ⬆️ <b>Punch Up:</b> GO CHARMANDER!
+      </p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start AR
       </button>
@@ -31,12 +37,15 @@
 
     <div id="error-container" class="hidden text-center max-w-md">
         <h2 class="text-2xl font-bold mb-4 text-red-500">Permission Required</h2>
-        <p class="text-lg">Motion sensor permission is required. Please reload and allow.</p>
+        <p class="text-lg">Motion sensor permission is required.</p>
     </div>
 
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
       <p class="text-lg font-semibold">Status: <span id="status-animal" class="text-green-400">Turtle</span></p>
-      <p class="text-sm">Horizontal Speed: <span id="status-speed">0.00</span> m/s²</p>
+      <div class="text-xs text-gray-400 mt-1">
+          <p>Side (X): <span id="speed-x">0</span></p>
+          <p>Vert (Y): <span id="speed-y">0</span></p>
+      </div>
     </div>
     
   </div>
@@ -58,7 +67,24 @@
         scale="0.01 0.01 0.01"
         position="0 -0.5 -2.5"
         visible="false"
-        rotation="0 0 0" 
+        rotation="0 180 0" 
+      ></a-entity>
+
+      <a-entity 
+        id="pokeball" 
+        gltf-model="#pokeball-model" 
+        position="0 -0.5 -2.5" 
+        scale="0.05 0.05 0.05"
+        visible="false"
+      ></a-entity>
+
+      <a-entity 
+        id="charmander" 
+        gltf-model="#charmander-model" 
+        position="0 -0.6 -2.5" 
+        scale="0.01 0.01 0.01"
+        rotation="0 180 0"
+        visible="false"
       ></a-entity>
 
     </a-entity>
@@ -67,11 +93,10 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
-      // Note: Since we are only looking at 1 axis (X) instead of 3, 
-      // we might need to lower the threshold slightly if it feels too hard.
-      // But 1.5 is usually good for a shake.
-      const SPEED_THRESHOLD = 1.5; 
-      const RABBIT_HOLD_TIME = 3000; 
+      const SHAKE_THRESHOLD = 1.5;   
+      const THROW_THRESHOLD = 5.0;   
+      const HOLD_TIME = 3000;      // How long animals stay
+      const POKEBALL_TIME = 10000; // How long Pokeball locks
 
       // --- Elements ---
       const startButton = document.getElementById('start-button');
@@ -79,13 +104,21 @@
       const errorContainer = document.getElementById('error-container');
       const infoBox = document.getElementById('info-box');
       const arScene = document.getElementById('ar-scene');
+      
       const turtle = document.getElementById('turtle');
       const rabbit = document.getElementById('rabbit');
-      const statusSpeed = document.getElementById('status-speed');
+      const pokeball = document.getElementById('pokeball');
+      const charmander = document.getElementById('charmander'); // New Element
+      
       const statusAnimal = document.getElementById('status-animal');
+      const speedX = document.getElementById('speed-x');
+      const speedY = document.getElementById('speed-y');
 
-      let isRabbitVisible = false;
-      let rabbitTimer = null;
+      // --- State Variables ---
+      let isAltVisible = false; // Is Rabbit or Charmander visible?
+      let resetTimer = null;    // Timer to go back to Turtle
+      let pokeballTimer = null;
+      let isPokeballLocked = false; 
 
       startButton.addEventListener('click', () => {
         requestDeviceMotionPermission();
@@ -95,11 +128,8 @@
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           DeviceMotionEvent.requestPermission()
             .then(permissionState => {
-              if (permissionState === 'granted') {
-                startApp();
-              } else {
-                showError();
-              }
+              if (permissionState === 'granted') startApp();
+              else showError();
             })
             .catch(showError);
         } else {
@@ -121,63 +151,123 @@
 
       function handleMotion(event) {
         try {
-          const acc = event.acceleration || event.accelerationIncludingGravity;
+          const acc = event.acceleration; 
           if (!acc) return;
 
-          // **FIX:** We only care about X (Side to Side)
-          // Y is Up/Down (Ignored)
-          // Z is Forward/Back (Ignored)
-          const x = acc.x || 0;
-          
-          // Calculate speed based ONLY on X axis
-          const currentSpeed = Math.abs(x);
-          
-          if (statusSpeed) statusSpeed.textContent = currentSpeed.toFixed(2);
+          const x = acc.x || 0; 
+          const y = acc.y || 0; 
 
-          // --- LOGIC ---
-          if (currentSpeed > SPEED_THRESHOLD) {
-            // MOVING FAST (Horizontally)
-            if (rabbitTimer) {
-                clearTimeout(rabbitTimer);
-                rabbitTimer = null;
-            }
+          if (speedX) speedX.textContent = x.toFixed(1);
+          if (speedY) speedY.textContent = y.toFixed(1);
 
-            if (!isRabbitVisible) {
+          const absX = Math.abs(x);
+          
+          // --- PRIORITY 1: VERTICAL (Pokeball / Charmander) ---
+
+          // MOVE DOWN -> THROW POKEBALL
+          if (y < -THROW_THRESHOLD) {
+            
+            isPokeballLocked = true;
+
+            // Clear timers
+            if (resetTimer) clearTimeout(resetTimer);
+            if (pokeballTimer) clearTimeout(pokeballTimer);
+
+            // Hide Everything, Show Pokeball
+            if (pokeball) pokeball.setAttribute('visible', 'true');
+            if (rabbit) rabbit.setAttribute('visible', 'false');
+            if (turtle) turtle.setAttribute('visible', 'false');
+            if (charmander) charmander.setAttribute('visible', 'false');
+
+            statusAnimal.textContent = 'Pokeball (Locked 10s)';
+            statusAnimal.className = "text-red-600 font-extrabold";
+
+            pokeballTimer = setTimeout(() => {
+                unlockPokeball();
+            }, POKEBALL_TIME);
+
+            return; 
+          }
+
+          // MOVE UP -> RELEASE CHARMANDER
+          if (y > THROW_THRESHOLD) {
+            
+            isPokeballLocked = false;
+            if (pokeballTimer) clearTimeout(pokeballTimer);
+            if (resetTimer) clearTimeout(resetTimer);
+
+            // Show CHARMANDER Immediately
+            if (pokeball) pokeball.setAttribute('visible', 'false');
+            if (rabbit) rabbit.setAttribute('visible', 'false');
+            if (turtle) turtle.setAttribute('visible', 'false');
+            if (charmander) charmander.setAttribute('visible', 'true');
+
+            statusAnimal.textContent = 'CHARMANDER!';
+            statusAnimal.className = "text-orange-500 font-bold";
+            isAltVisible = true;
+
+            // Stay for 3 seconds (or change HOLD_TIME to longer if you want)
+            resetTimer = setTimeout(() => {
+                showTurtle();
+            }, HOLD_TIME);
+
+            return; 
+          }
+
+          // --- PRIORITY 2: HORIZONTAL (Rabbit) ---
+          if (isPokeballLocked) return; 
+
+          if (absX > SHAKE_THRESHOLD) {
+            // FAST SIDEWAYS -> Show Rabbit
+            if (resetTimer) clearTimeout(resetTimer);
+
+            if (!isAltVisible) {
                 if (rabbit) rabbit.setAttribute('visible', 'true');
                 if (turtle) turtle.setAttribute('visible', 'false');
+                if (pokeball) pokeball.setAttribute('visible', 'false');
+                if (charmander) charmander.setAttribute('visible', 'false');
                 
-                statusAnimal.textContent = 'Rabbit (Side Shake!)';
-                statusAnimal.className = "text-red-500 font-bold"; 
-                isRabbitVisible = true;
-            } else {
-                statusAnimal.textContent = 'Rabbit (Side Shake!)';
-                statusAnimal.className = "text-red-500 font-bold";
+                statusAnimal.textContent = 'Rabbit';
+                statusAnimal.className = "text-gray-300 font-bold";
+                isAltVisible = true;
             }
-
           } else {
-            // MOVING SLOW (Or moving vertically, which counts as slow horizontal speed)
-            if (isRabbitVisible && !rabbitTimer) {
-                // Start the countdown
-                statusAnimal.textContent = 'Rabbit (Wait 3s...)';
-                statusAnimal.className = "text-yellow-400 font-bold"; 
+            // SLOW -> Wait then show Turtle
+            if (isAltVisible && !resetTimer) {
+                // Determine who is currently out to set the correct status text
+                const isCharmanderOut = charmander.getAttribute('visible');
+                
+                statusAnimal.textContent = isCharmanderOut ? 'Charmander (Wait...)' : 'Rabbit (Wait...)';
+                statusAnimal.className = "text-yellow-400 font-bold";
 
-                rabbitTimer = setTimeout(() => {
-                    // Time is up! Show Turtle
-                    if (rabbit) rabbit.setAttribute('visible', 'false');
-                    if (turtle) turtle.setAttribute('visible', 'true');
-                    
-                    statusAnimal.textContent = 'Turtle';
-                    statusAnimal.className = "text-green-400 font-bold"; 
-                    
-                    isRabbitVisible = false;
-                    rabbitTimer = null;
-                }, RABBIT_HOLD_TIME);
+                resetTimer = setTimeout(() => {
+                    showTurtle();
+                }, HOLD_TIME);
             }
           }
+
         } catch (err) {
             console.error(err);
         }
       }
+
+      function unlockPokeball() {
+        isPokeballLocked = false;
+        showTurtle();
+      }
+
+      function showTurtle() {
+        if (rabbit) rabbit.setAttribute('visible', 'false');
+        if (pokeball) pokeball.setAttribute('visible', 'false');
+        if (charmander) charmander.setAttribute('visible', 'false');
+        if (turtle) turtle.setAttribute('visible', 'true');
+        
+        statusAnimal.textContent = 'Turtle';
+        statusAnimal.className = "text-green-400 font-bold";
+        isAltVisible = false;
+        resetTimer = null;
+      }
+
     });
   </script>
 </body>
