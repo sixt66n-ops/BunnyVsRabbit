@@ -23,7 +23,7 @@
     
     <div id="start-container" class="text-center">
       <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
-      <p class="text-lg mb-6 max-w-md">Move slow = Turtle. Move fast = Rabbit (stays for 3s).</p>
+      <p class="text-lg mb-6 max-w-md">Shake phone <b>SIDEWAYS</b> for Rabbit.<br>Move Up/Down does nothing.</p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start AR
       </button>
@@ -36,7 +36,7 @@
 
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
       <p class="text-lg font-semibold">Status: <span id="status-animal" class="text-green-400">Turtle</span></p>
-      <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
+      <p class="text-sm">Horizontal Speed: <span id="status-speed">0.00</span> m/s²</p>
     </div>
     
   </div>
@@ -67,6 +67,9 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
+      // Note: Since we are only looking at 1 axis (X) instead of 3, 
+      // we might need to lower the threshold slightly if it feels too hard.
+      // But 1.5 is usually good for a shake.
       const SPEED_THRESHOLD = 1.5; 
       const RABBIT_HOLD_TIME = 3000; 
 
@@ -121,16 +124,19 @@
           const acc = event.acceleration || event.accelerationIncludingGravity;
           if (!acc) return;
 
+          // **FIX:** We only care about X (Side to Side)
+          // Y is Up/Down (Ignored)
+          // Z is Forward/Back (Ignored)
           const x = acc.x || 0;
-          const y = acc.y || 0;
-          const z = acc.z || 0;
-          const currentSpeed = Math.abs(x) + Math.abs(y) + Math.abs(z);
+          
+          // Calculate speed based ONLY on X axis
+          const currentSpeed = Math.abs(x);
           
           if (statusSpeed) statusSpeed.textContent = currentSpeed.toFixed(2);
 
           // --- LOGIC ---
           if (currentSpeed > SPEED_THRESHOLD) {
-            // MOVING FAST
+            // MOVING FAST (Horizontally)
             if (rabbitTimer) {
                 clearTimeout(rabbitTimer);
                 rabbitTimer = null;
@@ -140,23 +146,20 @@
                 if (rabbit) rabbit.setAttribute('visible', 'true');
                 if (turtle) turtle.setAttribute('visible', 'false');
                 
-                statusAnimal.textContent = 'Rabbit (Fast!)';
-                statusAnimal.className = "text-red-500 font-bold"; // Red text for Rabbit
+                statusAnimal.textContent = 'Rabbit (Side Shake!)';
+                statusAnimal.className = "text-red-500 font-bold"; 
                 isRabbitVisible = true;
             } else {
-                // Update text just in case
-                statusAnimal.textContent = 'Rabbit (Fast!)';
+                statusAnimal.textContent = 'Rabbit (Side Shake!)';
                 statusAnimal.className = "text-red-500 font-bold";
             }
 
           } else {
-            // MOVING SLOW
+            // MOVING SLOW (Or moving vertically, which counts as slow horizontal speed)
             if (isRabbitVisible && !rabbitTimer) {
                 // Start the countdown
-                
-                // Update Text to show we are waiting
                 statusAnimal.textContent = 'Rabbit (Wait 3s...)';
-                statusAnimal.className = "text-yellow-400 font-bold"; // Yellow text for Waiting
+                statusAnimal.className = "text-yellow-400 font-bold"; 
 
                 rabbitTimer = setTimeout(() => {
                     // Time is up! Show Turtle
@@ -164,7 +167,7 @@
                     if (turtle) turtle.setAttribute('visible', 'true');
                     
                     statusAnimal.textContent = 'Turtle';
-                    statusAnimal.className = "text-green-400 font-bold"; // Green text for Turtle
+                    statusAnimal.className = "text-green-400 font-bold"; 
                     
                     isRabbitVisible = false;
                     rabbitTimer = null;
