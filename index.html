@@ -55,8 +55,8 @@
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
       <p class="text-lg font-semibold">Status: <span id="status-animal" class="text-blue-400">Pokeball</span></p>
       <div class="text-xs text-gray-400 mt-1">
-          <p>Side Speed: <span id="speed-x">0</span></p>
-          <p>Vert Speed: <span id="speed-y">0</span></p>
+          <p>X (Side): <span id="speed-x">0</span></p>
+          <p>Y (Vert): <span id="speed-y">0</span></p>
       </div>
     </div>
     
@@ -70,44 +70,44 @@
         gltf-model="#pokeball-model" 
         position="0 -0.5 -2.5" 
         scale="0.8 0.8 0.8"
-        visible="true"
-        rotation="0 180 0"
-      ></a-entity>
+        rotation="0 220 0"
+        visible="true">
+      </a-entity>
 
       <a-entity
         id="turtle"
         gltf-model="#turtle-model"
         scale="0.08 0.08 0.08"
         position="0 -0.75 -2.5" 
-        visible="false"
-      ></a-entity>
+        visible="false">
+      </a-entity>
       
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
-        scale="0.01 0.01 0.01"
+        scale="0.001 0.001 0.001"
         position="0 -0.5 -2.5"
-        visible="false"
-        rotation="0 180 0" 
-      ></a-entity>
+        rotation="0 0 0" 
+        visible="false">
+      </a-entity>
 
       <a-entity 
         id="charmander" 
         gltf-model="#charmander-model" 
         position="0 -0.6 -2.5" 
-        scale="0.01 0.01 0.01"
+        scale="0.3 0.3 0.3"
         rotation="0 180 0"
-        visible="false"
-      ></a-entity>
+        visible="false">
+      </a-entity>
 
       <a-entity 
         id="bulbasaur" 
         gltf-model="#bulbasaur-model" 
         position="0 -0.6 -2.5" 
-        scale="0.01 0.01 0.01"
+        scale="0.3 0.3 0.3"
         rotation="0 180 0"
-        visible="false"
-      ></a-entity>
+        visible="false">
+      </a-entity>
 
     </a-entity>
   </a-scene>
@@ -115,14 +115,10 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
-      const TURTLE_MIN = 1.0;
-      const TURTLE_MAX = 3.0;
-      // Rabbit is > 3.0
-      
-      const VERTICAL_THRESHOLD = 5.0; // Speed needed for Up/Down
-      
-      // ** CHANGE: 5000ms = 5 Seconds **
-      const DISPLAY_TIME = 5000; 
+      const TURTLE_MIN = 2.0; 
+      const RABBIT_MIN = 5.0; 
+      const VERTICAL_THRESHOLD = 5.0; 
+      const DISPLAY_TIME = 5000; // 5 Seconds
 
       // --- Elements ---
       const startButton = document.getElementById('start-button');
@@ -145,32 +141,18 @@
       const speedX = document.getElementById('speed-x');
       const speedY = document.getElementById('speed-y');
 
-      // --- State ---
-      let isLocked = false; // When true, ignore motion
+      let isLocked = false;
       let lockTimer = null;
 
-      // --- Start Button ---
-      startButton.addEventListener('click', () => {
-        requestDeviceMotionPermission();
-      });
-
-      // --- Reset Touch ---
-      clickLayer.addEventListener('click', () => {
-        console.log("Screen touched - Resetting to Pokeball");
-        resetToPokeball();
-      });
+      startButton.addEventListener('click', () => requestDeviceMotionPermission());
+      clickLayer.addEventListener('click', () => resetToPokeball());
 
       function requestDeviceMotionPermission() {
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-          // iOS 13+ permission request
           DeviceMotionEvent.requestPermission()
-            .then(permissionState => {
-              if (permissionState === 'granted') startApp();
-              else showError();
-            })
+            .then(state => { if (state === 'granted') startApp(); else showError(); })
             .catch(showError);
         } else {
-          // Android / Non-iOS
           startApp();
         }
       }
@@ -184,102 +166,74 @@
         startContainer.style.display = 'none';
         arScene.style.display = 'block';
         infoBox.style.display = 'block';
-        clickLayer.style.display = 'block'; // Enable touch layer
-        
+        clickLayer.style.display = 'block';
         resetToPokeball();
         window.addEventListener('devicemotion', handleMotion);
       }
 
       function handleMotion(event) {
-        // If locked (animal is showing), ignore motion until timer ends or user clicks
         if (isLocked) return;
 
-        try {
-          const acc = event.acceleration; 
-          if (!acc) return;
+        const acc = event.acceleration; 
+        if (!acc) return;
 
-          const x = acc.x || 0; 
-          const y = acc.y || 0; 
-          const absX = Math.abs(x);
+        const x = acc.x || 0; 
+        const y = acc.y || 0; 
+        
+        if (speedX) speedX.textContent = x.toFixed(1);
+        if (speedY) speedY.textContent = y.toFixed(1);
 
-          if (speedX) speedX.textContent = x.toFixed(1);
-          if (speedY) speedY.textContent = y.toFixed(1);
+        const absX = Math.abs(x);
+        const absY = Math.abs(y);
 
-          // --- LOGIC ---
+        // --- NEW LOGIC: Dominant Axis Check ---
+        
+        // 1. Are we moving Vertically more than Horizontally?
+        if (absY > absX) {
+            
+            if (y > VERTICAL_THRESHOLD) {
+                showAnimal('charmander', 'Charmander!', 'text-orange-500');
+            } else if (y < -VERTICAL_THRESHOLD) {
+                showAnimal('bulbasaur', 'Bulbasaur!', 'text-green-600');
+            }
+            
+            // If moving vertically but not fast enough yet, STOP here.
+            // This prevents the "Turtle" from appearing while punching up.
+            if (absY > 2.0) return;
+        }
 
-          // 1. VERTICAL (Up/Down)
-          if (y > VERTICAL_THRESHOLD) {
-             // UP -> Charmander
-             showAnimal('charmander', 'Charmander!', 'text-orange-500');
-             return;
-          }
-          
-          if (y < -VERTICAL_THRESHOLD) {
-             // DOWN -> Bulbasaur
-             showAnimal('bulbasaur', 'Bulbasaur!', 'text-green-600');
-             return;
-          }
-
-          // 2. HORIZONTAL (Left/Right)
-          if (absX > TURTLE_MAX) {
-             // > 3.0 -> Rabbit
-             showAnimal('rabbit', 'Rabbit (Fast!)', 'text-red-500');
-             return;
-          }
-
-          if (absX > TURTLE_MIN) {
-             // 1.0 to 3.0 -> Turtle
-             showAnimal('turtle', 'Turtle (Slow)', 'text-green-400');
-             return;
-          }
-
-        } catch (err) {
-            console.error(err);
+        // 2. Are we moving Horizontally?
+        else {
+            if (absX > RABBIT_MIN) {
+                showAnimal('rabbit', 'Rabbit (Fast!)', 'text-red-500');
+            } else if (absX > TURTLE_MIN) {
+                showAnimal('turtle', 'Turtle (Slow)', 'text-green-400');
+            }
         }
       }
 
       function showAnimal(modelName, statusText, colorClass) {
-        // Hide all models
         for (let key in models) {
             if (models[key]) models[key].setAttribute('visible', 'false');
         }
+        if (models[modelName]) models[modelName].setAttribute('visible', 'true');
 
-        // Show the chosen one
-        if (models[modelName]) {
-            models[modelName].setAttribute('visible', 'true');
-        }
-
-        // Update Text
         statusAnimal.textContent = statusText;
         statusAnimal.className = colorClass + " font-bold";
 
-        // Lock for 5 seconds
         isLocked = true;
         if (lockTimer) clearTimeout(lockTimer);
-
-        lockTimer = setTimeout(() => {
-            resetToPokeball();
-        }, DISPLAY_TIME);
+        lockTimer = setTimeout(() => resetToPokeball(), DISPLAY_TIME);
       }
 
       function resetToPokeball() {
         if (lockTimer) clearTimeout(lockTimer);
         isLocked = false;
-
-        // Hide all
-        for (let key in models) {
-            if (models[key]) models[key].setAttribute('visible', 'false');
-        }
-
-        // Show Pokeball
-        if (models.pokeball) {
-            models.pokeball.setAttribute('visible', 'true');
-        }
-
+        for (let key in models) if (models[key]) models[key].setAttribute('visible', 'false');
+        if (models.pokeball) models.pokeball.setAttribute('visible', 'true');
         statusAnimal.textContent = 'Pokeball (Ready)';
         statusAnimal.className = "text-blue-400 font-bold";
       }
-
     });
   </script>
 </body>
