@@ -5,10 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <!-- 1. Load Tailwind CSS for styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- 2. Load A-Frame and AR.js -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.min.js"></script>
 
@@ -21,33 +19,26 @@
 </head>
 <body class="bg-gray-900 text-white font-sans">
 
-  <!-- 3. Asset Management -->
-  <!-- Now loading the models from your local repository. -->
   <a-assets>
     <a-asset-item id="turtle-model" src="Turtle.glb"></a-asset-item>
     <a-asset-item id="rabbit-model" src="Rabbit.glb"></a-asset-item>
   </a-assets>
 
-  <!-- UI Elements -->
   <div id="ui-container" class="fixed inset-0 z-10 flex flex-col items-center justify-center p-6">
     
-    <!-- Start Button -->
     <div id="start-container" class="text-center">
       <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
-      <!-- Updated the description text -->
       <p class="text-lg mb-6 max-w-md">Move your phone slowly to see a turtle. Move it fast to see a rabbit!</p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start AR
       </button>
     </div>
 
-    <!-- Error Message (Replaces the 'alert') -->
     <div id="error-container" class="hidden text-center max-w-md">
         <h2 class="text-2xl font-bold mb-4 text-red-500">Permission Required</h2>
         <p class="text-lg">Motion sensor permission is required to run this app. Please reload the page and grant permission when asked.</p>
     </div>
 
-    <!-- Info Box (shown after start) -->
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
       <p class="text-lg font-semibold">Status: <span id="status-animal" class="font-normal">Turtle</span></p>
       <p class="text-sm">Acceleration: <span id="status-speed">0.1</span> m/s²</p>
@@ -55,28 +46,23 @@
     
   </div>
 
-  <!-- 4. A-Frame AR Scene -->
   <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
 
-    <!-- 5. Camera -->
-    <!-- The objects are children of the camera, so they are "stuck" to your view. -->
     <a-entity camera>
       
-      <!-- Turtle Model -->
       <a-entity
         id="turtle"
         gltf-model="#turtle-model"
         scale="0.08 0.08 0.08"
-        position="0 -0.75 -2.5" <!-- X Y Z: 0=center, -0.75=down, -2.5= in front -->
+        position="0 -0.75 -2.5" 
         visible="true"
       ></a-entity>
       
-      <!-- Rabbit Model -->
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
         scale="0.01 0.01 0.01"
-        position="0 -0.5 -2.5" <!-- Same position, will replace the turtle -->
+        position="0 -0.5 -2.5"
         visible="false"
         rotation="0 180 0"
       ></a-entity>
@@ -85,18 +71,18 @@
     
   </a-scene>
 
-  <!-- 6. JavaScript Logic -->
   <script>
     window.addEventListener('load', () => {
       console.log("Page loaded");
 
       // --- Configuration ---
       const SPEED_THRESHOLD = 1.5; // in m/s²
+      const RABBIT_HOLD_TIME = 3000; // 3000ms = 3 seconds
 
       // --- UI Elements ---
       const startButton = document.getElementById('start-button');
       const startContainer = document.getElementById('start-container');
-      const errorContainer = document.getElementById('error-container'); // Get the new error box
+      const errorContainer = document.getElementById('error-container');
       const infoBox = document.getElementById('info-box');
       const arScene = document.getElementById('ar-scene');
 
@@ -109,6 +95,7 @@
       const statusAnimal = document.getElementById('status-animal');
 
       let isRabbitVisible = false;
+      let rabbitTimer = null; // Variable to store the timer ID
 
       // --- Start Button Click ---
       startButton.addEventListener('click', () => {
@@ -126,7 +113,6 @@
               if (permissionState === 'granted') {
                 startApp();
               } else {
-                // **FIX:** Replaced alert() with a non-blocking UI message
                 console.error('Motion sensor permission was not granted.');
                 startContainer.style.display = 'none';
                 errorContainer.style.display = 'block';
@@ -134,7 +120,6 @@
             })
             .catch(err => {
                 console.error("Error requesting motion permission:", err);
-                // Show error message on any other error
                 startContainer.style.display = 'none';
                 errorContainer.style.display = 'block';
                 errorContainer.querySelector('p').textContent = 'An error occurred while requesting permissions. Please try again.';
@@ -148,66 +133,80 @@
 
       function startApp() {
         console.log("Starting app...");
-        // Hide start UI
         startContainer.style.display = 'none';
-        
-        // Show AR Scene and Info UI
         arScene.style.display = 'block';
         infoBox.style.display = 'block';
-
-        // Add the motion listener
         window.addEventListener('devicemotion', handleMotion);
       }
 
       // --- Motion Handling ---
       function handleMotion(event) {
-        // **FIX:** Added a try...catch block to catch any errors inside this high-frequency
-        // event handler, which may be the source of the "Script error".
         try {
           const acc = event.acceleration || event.accelerationIncludingGravity;
 
           if (!acc || acc.x === null) {
-            // Only log this once
-            if (statusSpeed && statusSpeed.textContent !== 'N/A') { // Check if statusSpeed exists
+            if (statusSpeed && statusSpeed.textContent !== 'N/A') { 
               console.warn("Motion sensor data is null or N/A.");
               statusSpeed.textContent = 'N/A';
             }
             return;
           }
 
-          // **FIX:** Ensure x, y, and z are numbers before doing math
-          // This prevents Math.abs(undefined) which results in NaN.
           const x = acc.x || 0;
           const y = acc.y || 0;
           const z = acc.z || 0;
 
           const currentSpeed = Math.abs(x) + Math.abs(y) + Math.abs(z);
           
-          // **FIX:** Check if statusSpeed element exists before trying to set its property
           if (statusSpeed) {
               statusSpeed.textContent = currentSpeed.toFixed(2);
           }
 
-          // --- Core Logic ---
-          if (currentSpeed > SPEED_THRESHOLD && !isRabbitVisible) {
-            console.log("--- FAST! Trying to show RABBIT ---");
-            // Show Rabbit
-            if (rabbit) rabbit.setAttribute('visible', 'true');
-            if (turtle) turtle.setAttribute('visible', 'false');
-            if (statusAnimal) statusAnimal.textContent = 'Rabbit';
-            isRabbitVisible = true;
+          // --- Core Logic with 3 Second Delay ---
+          
+          if (currentSpeed > SPEED_THRESHOLD) {
+            // CASE 1: Moving FAST
             
-          } else if (currentSpeed <= SPEED_THRESHOLD && isRabbitVisible) {
-            console.log("--- SLOW! Trying to show TURTLE ---");
-            // Show Turtle
-            if (rabbit) rabbit.setAttribute('visible', 'false');
-            if (turtle) turtle.setAttribute('visible', 'true');
-            if (statusAnimal) statusAnimal.textContent = 'Turtle';
-            isRabbitVisible = false;
+            // If there is a timer waiting to hide the rabbit, CANCEL IT.
+            // This prevents the rabbit from vanishing if you speed up again quickly.
+            if (rabbitTimer) {
+                clearTimeout(rabbitTimer);
+                rabbitTimer = null;
+            }
+
+            // If rabbit isn't visible yet, show it immediately
+            if (!isRabbitVisible) {
+                console.log("--- FAST! Showing RABBIT ---");
+                if (rabbit) rabbit.setAttribute('visible', 'true');
+                if (turtle) turtle.setAttribute('visible', 'false');
+                if (statusAnimal) statusAnimal.textContent = 'Rabbit';
+                isRabbitVisible = true;
+            }
+
+          } else {
+            // CASE 2: Moving SLOW
+            
+            // If the rabbit is visible AND we haven't started the timer yet...
+            if (isRabbitVisible && !rabbitTimer) {
+                console.log("--- SLOW! Starting 3s timer... ---");
+                
+                // Start the countdown
+                rabbitTimer = setTimeout(() => {
+                    console.log("--- 3s passed. Showing TURTLE ---");
+                    
+                    // Show Turtle / Hide Rabbit
+                    if (rabbit) rabbit.setAttribute('visible', 'false');
+                    if (turtle) turtle.setAttribute('visible', 'true');
+                    if (statusAnimal) statusAnimal.textContent = 'Turtle';
+                    
+                    isRabbitVisible = false;
+                    rabbitTimer = null; // Clear the timer ID
+                }, RABBIT_HOLD_TIME);
+            }
           }
+
         } catch (err) {
             console.error("Error inside handleMotion:", err);
-            // We can log the error without stopping the whole app.
         }
       }
     });
