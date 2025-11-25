@@ -4,17 +4,12 @@
   <title>Markerless AR Pets</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.min.js"></script>
 
   <style>
-    /* Hide the A-Frame scene until the user clicks start */
-    #ar-scene {
-      display: none;
-    }
+    #ar-scene { display: none; }
   </style>
 </head>
 <body class="bg-gray-900 text-white font-sans">
@@ -28,7 +23,7 @@
     
     <div id="start-container" class="text-center">
       <h1 class="text-3xl font-bold mb-4">Speedy AR Pets</h1>
-      <p class="text-lg mb-6 max-w-md">Move your phone slowly to see a turtle. Move it fast to see a rabbit!</p>
+      <p class="text-lg mb-6 max-w-md">Move slow = Turtle. Move fast = Rabbit (stays for 3s).</p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start AR
       </button>
@@ -36,18 +31,17 @@
 
     <div id="error-container" class="hidden text-center max-w-md">
         <h2 class="text-2xl font-bold mb-4 text-red-500">Permission Required</h2>
-        <p class="text-lg">Motion sensor permission is required to run this app. Please reload the page and grant permission when asked.</p>
+        <p class="text-lg">Motion sensor permission is required. Please reload and allow.</p>
     </div>
 
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
-      <p class="text-lg font-semibold">Status: <span id="status-animal" class="font-normal">Turtle</span></p>
-      <p class="text-sm">Acceleration: <span id="status-speed">0.1</span> m/s²</p>
+      <p class="text-lg font-semibold">Status: <span id="status-animal" class="text-green-400">Turtle</span></p>
+      <p class="text-sm">Acceleration: <span id="status-speed">0.00</span> m/s²</p>
     </div>
     
   </div>
 
   <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-
     <a-entity camera>
       
       <a-entity
@@ -64,153 +58,124 @@
         scale="0.01 0.01 0.01"
         position="0 -0.5 -2.5"
         visible="false"
-        rotation="0 180 0"
+        rotation="0 0 0" 
       ></a-entity>
 
     </a-entity>
-    
   </a-scene>
 
   <script>
     window.addEventListener('load', () => {
-      console.log("Page loaded");
-
       // --- Configuration ---
-      const SPEED_THRESHOLD = 1.5; // in m/s²
-      const RABBIT_HOLD_TIME = 3000; // 3000ms = 3 seconds
+      const SPEED_THRESHOLD = 1.5; 
+      const RABBIT_HOLD_TIME = 3000; 
 
-      // --- UI Elements ---
+      // --- Elements ---
       const startButton = document.getElementById('start-button');
       const startContainer = document.getElementById('start-container');
       const errorContainer = document.getElementById('error-container');
       const infoBox = document.getElementById('info-box');
       const arScene = document.getElementById('ar-scene');
-
-      // --- AR Elements ---
       const turtle = document.getElementById('turtle');
       const rabbit = document.getElementById('rabbit');
-      
-      // --- Status Elements ---
       const statusSpeed = document.getElementById('status-speed');
       const statusAnimal = document.getElementById('status-animal');
 
       let isRabbitVisible = false;
-      let rabbitTimer = null; // Variable to store the timer ID
+      let rabbitTimer = null;
 
-      // --- Start Button Click ---
       startButton.addEventListener('click', () => {
-        console.log("Start button clicked");
         requestDeviceMotionPermission();
       });
 
       function requestDeviceMotionPermission() {
-        console.log("Requesting motion permission...");
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-          // iOS 13+
           DeviceMotionEvent.requestPermission()
             .then(permissionState => {
-              console.log("Permission state:", permissionState);
               if (permissionState === 'granted') {
                 startApp();
               } else {
-                console.error('Motion sensor permission was not granted.');
-                startContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
+                showError();
               }
             })
-            .catch(err => {
-                console.error("Error requesting motion permission:", err);
-                startContainer.style.display = 'none';
-                errorContainer.style.display = 'block';
-                errorContainer.querySelector('p').textContent = 'An error occurred while requesting permissions. Please try again.';
-            });
+            .catch(showError);
         } else {
-          // Non-iOS 13+ devices
-          console.log("Not an iOS 13+ device, or no permission function. Starting app directly.");
           startApp();
         }
       }
 
+      function showError() {
+        startContainer.style.display = 'none';
+        errorContainer.style.display = 'block';
+      }
+
       function startApp() {
-        console.log("Starting app...");
         startContainer.style.display = 'none';
         arScene.style.display = 'block';
         infoBox.style.display = 'block';
         window.addEventListener('devicemotion', handleMotion);
       }
 
-      // --- Motion Handling ---
       function handleMotion(event) {
         try {
           const acc = event.acceleration || event.accelerationIncludingGravity;
-
-          if (!acc || acc.x === null) {
-            if (statusSpeed && statusSpeed.textContent !== 'N/A') { 
-              console.warn("Motion sensor data is null or N/A.");
-              statusSpeed.textContent = 'N/A';
-            }
-            return;
-          }
+          if (!acc) return;
 
           const x = acc.x || 0;
           const y = acc.y || 0;
           const z = acc.z || 0;
-
           const currentSpeed = Math.abs(x) + Math.abs(y) + Math.abs(z);
           
-          if (statusSpeed) {
-              statusSpeed.textContent = currentSpeed.toFixed(2);
-          }
+          if (statusSpeed) statusSpeed.textContent = currentSpeed.toFixed(2);
 
-          // --- Core Logic with 3 Second Delay ---
-          
+          // --- LOGIC ---
           if (currentSpeed > SPEED_THRESHOLD) {
-            // CASE 1: Moving FAST
-            
-            // If there is a timer waiting to hide the rabbit, CANCEL IT.
-            // This prevents the rabbit from vanishing if you speed up again quickly.
+            // MOVING FAST
             if (rabbitTimer) {
                 clearTimeout(rabbitTimer);
                 rabbitTimer = null;
             }
 
-            // If rabbit isn't visible yet, show it immediately
             if (!isRabbitVisible) {
-                console.log("--- FAST! Showing RABBIT ---");
                 if (rabbit) rabbit.setAttribute('visible', 'true');
                 if (turtle) turtle.setAttribute('visible', 'false');
-                if (statusAnimal) statusAnimal.textContent = 'Rabbit';
+                
+                statusAnimal.textContent = 'Rabbit (Fast!)';
+                statusAnimal.className = "text-red-500 font-bold"; // Red text for Rabbit
                 isRabbitVisible = true;
+            } else {
+                // Update text just in case
+                statusAnimal.textContent = 'Rabbit (Fast!)';
+                statusAnimal.className = "text-red-500 font-bold";
             }
 
           } else {
-            // CASE 2: Moving SLOW
-            
-            // If the rabbit is visible AND we haven't started the timer yet...
+            // MOVING SLOW
             if (isRabbitVisible && !rabbitTimer) {
-                console.log("--- SLOW! Starting 3s timer... ---");
-                
                 // Start the countdown
+                
+                // Update Text to show we are waiting
+                statusAnimal.textContent = 'Rabbit (Wait 3s...)';
+                statusAnimal.className = "text-yellow-400 font-bold"; // Yellow text for Waiting
+
                 rabbitTimer = setTimeout(() => {
-                    console.log("--- 3s passed. Showing TURTLE ---");
-                    
-                    // Show Turtle / Hide Rabbit
+                    // Time is up! Show Turtle
                     if (rabbit) rabbit.setAttribute('visible', 'false');
                     if (turtle) turtle.setAttribute('visible', 'true');
-                    if (statusAnimal) statusAnimal.textContent = 'Turtle';
+                    
+                    statusAnimal.textContent = 'Turtle';
+                    statusAnimal.className = "text-green-400 font-bold"; // Green text for Turtle
                     
                     isRabbitVisible = false;
-                    rabbitTimer = null; // Clear the timer ID
+                    rabbitTimer = null;
                 }, RABBIT_HOLD_TIME);
             }
           }
-
         } catch (err) {
-            console.error("Error inside handleMotion:", err);
+            console.error(err);
         }
       }
     });
   </script>
-
 </body>
 </html>
