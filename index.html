@@ -10,7 +10,6 @@
 
   <style>
     #ar-scene { display: none; }
-    /* Strat invizibil pentru click oriunde pe ecran */
     #click-layer {
       position: absolute;
       top: 0; left: 0;
@@ -35,12 +34,15 @@
     
     <div id="start-container" class="text-center pointer-events-auto">
       <h1 class="text-3xl font-bold mb-4">Pokemon AR</h1>
-      <p class="text-lg mb-6 max-w-md text-left">
-        ↔️ <b>Shake (1-3 m/s):</b> Turtle (Fluid)<br>
-        ↔️ <b>Fast (>3 m/s):</b> Rabbit (Lock 3s)<br>
-        ⬆️ <b>Punch Up:</b> Charmander (Lock 3s)<br>
-        ⬇️ <b>Punch Down:</b> Bulbasaur (Lock 3s)<br>
-        👆 <b>Tap Screen:</b> Reset
+      <p class="text-lg mb-6 max-w-md text-left text-sm">
+        🥔 <b>Pokeball Mode (Start):</b><br>
+        - Punch UP: Charmander<br>
+        - Punch DOWN: Bulbasaur<br>
+        - Shake Side: Activează Turtle<br><br>
+        🐢 <b>Turtle Mode (Activ):</b><br>
+        - Rămâne pe ecran (ignora sus/jos)<br>
+        - Shake FAST (>3.5): Rabbit<br>
+        - TAP Screen: Reset to Pokeball
       </p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start Game
@@ -70,7 +72,7 @@
         gltf-model="#pokeball-model" 
         position="0 -0.5 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 260 0"
+        rotation="0 300 0"
         visible="true">
       </a-entity>
 
@@ -87,7 +89,7 @@
         gltf-model="#rabbit-model"
         scale="0.002 0.002 0.002"
         position="0 -0.5 -2.5"
-        rotation="0 180 0" 
+        rotation="0 0 180" 
         visible="false">
       </a-entity>
 
@@ -96,7 +98,7 @@
         gltf-model="#charmander-model" 
         position="0 -0.6 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 140 0"
+        rotation="0 260 0"
         visible="false">
       </a-entity>
 
@@ -115,13 +117,11 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
-      const TURTLE_MIN = 0.2;  // Coborât pragul pentru a apărea mai ușor
+      const TURTLE_MIN = 1.0;  
       const RABBIT_MIN = 3.5; 
-      
-      const UP_THRESHOLD = 4.0;    // Prag pozitiv pentru Charmander
-      const DOWN_THRESHOLD = -4.0; // Prag negativ pentru Bulbasaur
-      
-      const LOCK_TIME = 3000; // 3 Seconds
+      const UP_THRESHOLD = 4.0;    
+      const DOWN_THRESHOLD = -4.0; 
+      const LOCK_TIME = 3000; 
 
       // --- Elements ---
       const startButton = document.getElementById('start-button');
@@ -143,11 +143,17 @@
       const speedX = document.getElementById('speed-x');
       const speedY = document.getElementById('speed-y');
 
-      let isLocked = false;
+      // State Variables
+      let isLocked = false;       // Animatie activa (Rabbit/Charmander/Bulbasaur)
+      let isTurtleActive = false; // Turtle este pe ecran permanent?
       let lockTimer = null;
 
       startButton.addEventListener('click', () => requestDeviceMotionPermission());
-      clickLayer.addEventListener('click', () => resetToPokeball());
+      
+      // RESET TOTAL la click
+      clickLayer.addEventListener('click', () => {
+          resetToPokeball();
+      });
 
       function requestDeviceMotionPermission() {
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -174,12 +180,12 @@
       }
 
       function handleMotion(event) {
+        // 1. Daca e animatie blocata (Locked), ignoram orice miscare
         if (isLocked) return;
 
         const acc = event.acceleration; 
         if (!acc) return;
 
-        // Folosim valorile brute pentru direcție
         const x = acc.x || 0; 
         const y = acc.y || 0; 
         
@@ -189,61 +195,61 @@
         const absX = Math.abs(x);
         const absY = Math.abs(y);
 
-        // --- LOGIC FIX ---
-        
-        // 1. Verificăm Verticala (Charmander / Bulbasaur)
-        // Adăugăm condiția "absY > 3.0" pentru a ignora tremuratul mic vertical
-        // când încerci să faci Turtle.
-        if (absY > absX && absY > 3.0) {
+        // --- CAZUL 1: TURTLE ESTE DEJA PE ECRAN ---
+        if (isTurtleActive) {
+            // Ignoram complet axa Y (Sus/Jos)
             
-            if (y > UP_THRESHOLD) {
-                // Punch UP -> Charmander
-                activateLock('charmander', 'Charmander!', 'text-orange-500');
-                return;
-            } else if (y < DOWN_THRESHOLD) {
-                // Punch DOWN -> Bulbasaur
-                activateLock('bulbasaur', 'Bulbasaur!', 'text-green-600');
-                return;
-            }
-            
-            // Dacă mișcarea e verticală, dar nu suficient de rapidă, 
-            // rămânem la Pokeball (nu afișăm Turtle din greșeală)
-            showFluidState('pokeball', 'Pokeball', 'text-blue-400');
-        }
-
-        // 2. Verificăm Orizontala (Turtle / Rabbit)
-        else {
+            // Verificam doar daca viteza este mare pentru Rabbit
             if (absX > RABBIT_MIN) {
-                // > 3.5 m/s -> Rabbit (Locked)
                 activateLock('rabbit', 'Rabbit (Fast!)', 'text-red-500');
-                return;
-            } 
-            else if (absX > TURTLE_MIN) {
-                // 1.0 - 3.5 m/s -> Turtle (Fluid)
-                showFluidState('turtle', 'Turtle (Reading...)', 'text-green-400');
-                return;
             }
-            
-            // Dacă e prea încet, Pokeball
-            showFluidState('pokeball', 'Pokeball', 'text-blue-400');
+            // Daca viteza scade, nu facem nimic. Turtle ramane pe ecran.
+            return;
+        }
+
+        // --- CAZUL 2: SUNTEM LA POKEBALL (Turtle inactiv) ---
+        
+        // Verificam Verticala (Sus/Jos)
+        if (absY > absX && absY > 3.0) {
+            if (y > UP_THRESHOLD) {
+                activateLock('charmander', 'Charmander!', 'text-orange-500');
+            } else if (y < DOWN_THRESHOLD) {
+                activateLock('bulbasaur', 'Bulbasaur!', 'text-green-600');
+            }
+            return;
+        }
+
+        // Verificam Orizontala
+        if (absX > TURTLE_MIN) {
+            // Daca e foarte rapid, sarim direct la Rabbit
+            if (absX > RABBIT_MIN) {
+                activateLock('rabbit', 'Rabbit (Fast!)', 'text-red-500');
+            } 
+            // Altfel, activam Turtle permanent
+            else {
+                enableTurtleMode();
+            }
         }
       }
 
-      // --- FLUID STATE (Fără Timer - Turtle/Pokeball) ---
-      function showFluidState(modelName, statusText, colorClass) {
-        if (models[modelName].getAttribute('visible') === 'true') return;
-
+      // Functie care activeaza modul Turtle Permanent
+      function enableTurtleMode() {
+        isTurtleActive = true; 
+        
+        // Ascunde restul
         for (let key in models) {
-            if (models[key]) models[key].setAttribute('visible', 'false');
+             if (models[key]) models[key].setAttribute('visible', 'false');
         }
-        if (models[modelName]) models[modelName].setAttribute('visible', 'true');
+        if (models.turtle) models.turtle.setAttribute('visible', 'true');
 
-        statusAnimal.textContent = statusText;
-        statusAnimal.className = colorClass + " font-bold";
+        statusAnimal.textContent = "Turtle (Active)";
+        statusAnimal.className = "text-green-400 font-bold";
       }
 
-      // --- LOCKED STATE (Cu Timer 3s - Rabbit/Charmander/Bulbasaur) ---
+      // Functie pentru animatii cu Timer (Rabbit/Charmander/Bulbasaur)
       function activateLock(modelName, statusText, colorClass) {
+        isTurtleActive = false; // Oprim modul turtle daca intram in animatie
+
         for (let key in models) {
             if (models[key]) models[key].setAttribute('visible', 'false');
         }
@@ -263,7 +269,16 @@
       function resetToPokeball() {
         if (lockTimer) clearTimeout(lockTimer);
         isLocked = false;
-        showFluidState('pokeball', 'Pokeball (Ready)', 'text-blue-400');
+        isTurtleActive = false; // Resetam si starea turtle
+        
+        // Show Pokeball
+        for (let key in models) {
+            if (models[key]) models[key].setAttribute('visible', 'false');
+        }
+        if (models.pokeball) models.pokeball.setAttribute('visible', 'true');
+
+        statusAnimal.textContent = 'Pokeball (Ready)';
+        statusAnimal.className = "text-blue-400 font-bold";
       }
     });
   </script>
