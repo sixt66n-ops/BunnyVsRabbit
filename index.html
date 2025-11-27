@@ -35,7 +35,7 @@
     <div id="start-container" class="text-center pointer-events-auto">
       <h1 class="text-3xl font-bold mb-4">Pokemon AR</h1>
       <p class="text-lg mb-6 max-w-md text-left text-sm">
-        🥔 <b>Pokeball Mode (Start):</b><br>
+        <b>Pokeball Mode (Start):</b><br>
         - Punch UP: Charmander<br>
         - Punch DOWN: Bulbasaur<br>
         - Shake Side: Activează Turtle<br><br>
@@ -72,7 +72,7 @@
         gltf-model="#pokeball-model" 
         position="0 -0.5 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 220 0"
+        rotation="0 230 0"
         visible="true">
       </a-entity>
 
@@ -89,7 +89,7 @@
         gltf-model="#rabbit-model"
         scale="0.0011 0.0011 0.0011"
         position="0 -0.5 -2.5"
-        rotation="0 150 0" 
+        rotation="0 160 0" 
         visible="false">
       </a-entity>
 
@@ -117,8 +117,8 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
-      const TURTLE_MIN = 0.5;  
-      const RABBIT_MIN = 3.0; 
+      const TURTLE_MIN = 2.5;  
+      const RABBIT_MIN = 3.5; 
       const UP_THRESHOLD = 4.0;    
       const DOWN_THRESHOLD = -4.0; 
       const LOCK_TIME = 3000; 
