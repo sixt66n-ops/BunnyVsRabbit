@@ -72,7 +72,7 @@
         gltf-model="#pokeball-model" 
         position="0 -0.5 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 300 0"
+        rotation="0 250 0"
         visible="true">
       </a-entity>
 
@@ -87,9 +87,9 @@
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
-        scale="0.002 0.002 0.002"
+        scale="0.0015 0.0015 0.0015"
         position="0 -0.5 -2.5"
-        rotation="0 0 180" 
+        rotation="0 90 0" 
         visible="false">
       </a-entity>
 
@@ -98,7 +98,7 @@
         gltf-model="#charmander-model" 
         position="0 -0.6 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 260 0"
+        rotation="0 220 0"
         visible="false">
       </a-entity>
 
@@ -227,6 +227,8 @@
             } 
             // Altfel, activam Turtle permanent
             else {
+              if (absY > 2.5) return;
+              
                 enableTurtleMode();
             }
         }
