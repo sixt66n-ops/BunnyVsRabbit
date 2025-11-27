@@ -72,24 +72,24 @@
         gltf-model="#pokeball-model" 
         position="0 -0.5 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 250 0"
+        rotation="0 220 0"
         visible="true">
       </a-entity>
 
       <a-entity
         id="turtle"
         gltf-model="#turtle-model"
-        scale="0.08 0.08 0.08"
-        position="0 -0.75 -2.5" 
+        scale="0.07 0.07 0.07"
+        position="0 -0.65 -2.5" 
         visible="false">
       </a-entity>
       
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
-        scale="0.0015 0.0015 0.0015"
+        scale="0.0011 0.0011 0.0011"
         position="0 -0.5 -2.5"
-        rotation="0 90 0" 
+        rotation="0 150 0" 
         visible="false">
       </a-entity>
 
@@ -107,7 +107,7 @@
         gltf-model="#bulbasaur-model" 
         position="0 -0.6 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 180 0"
+        rotation="0 220 0"
         visible="false">
       </a-entity>
 
@@ -117,8 +117,8 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
-      const TURTLE_MIN = 1.0;  
-      const RABBIT_MIN = 3.5; 
+      const TURTLE_MIN = 0.5;  
+      const RABBIT_MIN = 3.0; 
       const UP_THRESHOLD = 4.0;    
       const DOWN_THRESHOLD = -4.0; 
       const LOCK_TIME = 3000; 
