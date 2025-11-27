@@ -10,6 +10,7 @@
 
   <style>
     #ar-scene { display: none; }
+    /* Strat invizibil pentru click oriunde pe ecran */
     #click-layer {
       position: absolute;
       top: 0; left: 0;
@@ -35,7 +36,6 @@
     <div id="start-container" class="text-center pointer-events-auto">
       <h1 class="text-3xl font-bold mb-4">Pokemon AR</h1>
       <p class="text-lg mb-6 max-w-md text-left">
-        ⚠️ <b>Asigură-te că ești pe HTTPS!</b><br>
         ↔️ <b>Shake (1-3 m/s):</b> Turtle (Fluid)<br>
         ↔️ <b>Fast (>3 m/s):</b> Rabbit (Lock 3s)<br>
         ⬆️ <b>Punch Up:</b> Charmander (Lock 3s)<br>
@@ -47,10 +47,9 @@
       </button>
     </div>
 
-    <div id="error-container" class="hidden text-center max-w-md pointer-events-auto bg-black p-4 rounded border border-red-500">
-        <h2 class="text-2xl font-bold mb-2 text-red-500">Eroare Senzori</h2>
-        <p class="text-sm mb-4" id="error-text">Permisiunea a fost refuzată sau nu ești pe HTTPS.</p>
-        <button onclick="location.reload()" class="bg-gray-700 px-4 py-2 rounded">Reload</button>
+    <div id="error-container" class="hidden text-center max-w-md pointer-events-auto">
+        <h2 class="text-2xl font-bold mb-4 text-red-500">Permission Required</h2>
+        <p class="text-lg">Motion sensor permission is required.</p>
     </div>
 
     <div id="info-box" class="hidden absolute top-4 left-4 bg-black bg-opacity-70 p-4 rounded-lg shadow-lg">
@@ -65,27 +64,69 @@
 
   <a-scene id="ar-scene" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
     <a-entity camera>
-      <a-entity id="pokeball" gltf-model="#pokeball-model" position="0 -0.5 -2.5" scale="0.8 0.8 0.8" rotation="0 200 0" visible="true"></a-entity>
-      <a-entity id="turtle" gltf-model="#turtle-model" scale="0.08 0.08 0.08" position="0 -0.75 -2.5" visible="false"></a-entity>
-      <a-entity id="rabbit" gltf-model="#rabbit-model" scale="0.009 0.009 0.009" position="0 -0.5 -2.5" rotation="0 180 0" visible="false"></a-entity>
-      <a-entity id="charmander" gltf-model="#charmander-model" position="0 -0.6 -2.5" scale="0.8 0.8 0.8" rotation="0 140 0" visible="false"></a-entity>
-      <a-entity id="bulbasaur" gltf-model="#bulbasaur-model" position="0 -0.6 -2.5" scale="0.8 0.8 0.8" rotation="0 180 0" visible="false"></a-entity>
+      
+      <a-entity 
+        id="pokeball" 
+        gltf-model="#pokeball-model" 
+        position="0 -0.5 -2.5" 
+        scale="0.8 0.8 0.8"
+        rotation="0 200 0"
+        visible="true">
+      </a-entity>
+
+      <a-entity
+        id="turtle"
+        gltf-model="#turtle-model"
+        scale="0.08 0.08 0.08"
+        position="0 -0.75 -2.5" 
+        visible="false">
+      </a-entity>
+      
+      <a-entity
+        id="rabbit"
+        gltf-model="#rabbit-model"
+        scale="0.009 0.009 0.009"
+        position="0 -0.5 -2.5"
+        rotation="0 180 0" 
+        visible="false">
+      </a-entity>
+
+      <a-entity 
+        id="charmander" 
+        gltf-model="#charmander-model" 
+        position="0 -0.6 -2.5" 
+        scale="0.8 0.8 0.8"
+        rotation="0 140 0"
+        visible="false">
+      </a-entity>
+
+      <a-entity 
+        id="bulbasaur" 
+        gltf-model="#bulbasaur-model" 
+        position="0 -0.6 -2.5" 
+        scale="0.8 0.8 0.8"
+        rotation="0 180 0"
+        visible="false">
+      </a-entity>
+
     </a-entity>
   </a-scene>
 
   <script>
     window.addEventListener('load', () => {
-      // --- Config ---
-      const TURTLE_MIN = 2.0; 
-      const RABBIT_MIN = 3.0; 
-      const VERTICAL_THRESHOLD = 5.0; 
-      const LOCK_TIME = 3000; 
+      // --- Configuration ---
+      const TURTLE_MIN = 1.0;  // Coborât pragul pentru a apărea mai ușor
+      const RABBIT_MIN = 3.5; 
+      
+      const UP_THRESHOLD = 4.0;    // Prag pozitiv pentru Charmander
+      const DOWN_THRESHOLD = -4.0; // Prag negativ pentru Bulbasaur
+      
+      const LOCK_TIME = 3000; // 3 Seconds
 
       // --- Elements ---
       const startButton = document.getElementById('start-button');
       const startContainer = document.getElementById('start-container');
       const errorContainer = document.getElementById('error-container');
-      const errorText = document.getElementById('error-text');
       const infoBox = document.getElementById('info-box');
       const clickLayer = document.getElementById('click-layer');
       const arScene = document.getElementById('ar-scene');
@@ -105,44 +146,22 @@
       let isLocked = false;
       let lockTimer = null;
 
-      startButton.addEventListener('click', () => {
-          // Check if Context is Secure (HTTPS)
-          if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-              alert("ATENȚIE: Trebuie să folosești HTTPS! Senzorii nu merg pe HTTP.");
-          }
-          requestPermissionAndStart();
-      });
-
+      startButton.addEventListener('click', () => requestDeviceMotionPermission());
       clickLayer.addEventListener('click', () => resetToPokeball());
 
-      function requestPermissionAndStart() {
-        // 1. Detect if iOS 13+ (Need permission)
+      function requestDeviceMotionPermission() {
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           DeviceMotionEvent.requestPermission()
-            .then(state => {
-              if (state === 'granted') {
-                startApp();
-              } else {
-                showError("Permisiunea a fost refuzată de utilizator.");
-              }
-            })
-            .catch(err => {
-              console.error(err);
-              // Dacă e o eroare tehnică, încercăm să pornim oricum (uneori e bug de browser)
-              console.log("Eroare la permisiune, încercăm pornire forțată...");
-              startApp(); 
-            });
-        } 
-        // 2. Android / Desktop / iOS vechi (No permission needed)
-        else {
+            .then(state => { if (state === 'granted') startApp(); else showError(); })
+            .catch(showError);
+        } else {
           startApp();
         }
       }
 
-      function showError(msg) {
+      function showError() {
         startContainer.style.display = 'none';
         errorContainer.style.display = 'block';
-        if(msg) errorText.textContent = msg;
       }
 
       function startApp() {
@@ -157,10 +176,10 @@
       function handleMotion(event) {
         if (isLocked) return;
 
-        // Fallback for some Androids that use accelerationIncludingGravity
         const acc = event.acceleration; 
         if (!acc) return;
 
+        // Folosim valorile brute pentru direcție
         const x = acc.x || 0; 
         const y = acc.y || 0; 
         
@@ -170,36 +189,50 @@
         const absX = Math.abs(x);
         const absY = Math.abs(y);
 
-        // --- Logic Check ---
-        if (absY > absX) {
-            // Vertical Dominant
-            if (y > VERTICAL_THRESHOLD) {
+        // --- LOGIC FIX ---
+        
+        // 1. Verificăm Verticala (Charmander / Bulbasaur)
+        // Adăugăm condiția "absY > 3.0" pentru a ignora tremuratul mic vertical
+        // când încerci să faci Turtle.
+        if (absY > absX && absY > 3.0) {
+            
+            if (y > UP_THRESHOLD) {
+                // Punch UP -> Charmander
                 activateLock('charmander', 'Charmander!', 'text-orange-500');
-            } else if (y < -VERTICAL_THRESHOLD) {
+                return;
+            } else if (y < DOWN_THRESHOLD) {
+                // Punch DOWN -> Bulbasaur
                 activateLock('bulbasaur', 'Bulbasaur!', 'text-green-600');
+                return;
             }
-            // If slow vertical movement, default to pokeball (hide others)
-            if (absY > 2.0 && !isLocked) {
-                 showFluidState('pokeball', 'Pokeball', 'text-blue-400');
-            }
+            
+            // Dacă mișcarea e verticală, dar nu suficient de rapidă, 
+            // rămânem la Pokeball (nu afișăm Turtle din greșeală)
+            showFluidState('pokeball', 'Pokeball', 'text-blue-400');
         }
+
+        // 2. Verificăm Orizontala (Turtle / Rabbit)
         else {
-            // Horizontal Dominant
             if (absX > RABBIT_MIN) {
+                // > 3.5 m/s -> Rabbit (Locked)
                 activateLock('rabbit', 'Rabbit (Fast!)', 'text-red-500');
+                return;
             } 
             else if (absX > TURTLE_MIN) {
+                // 1.0 - 3.5 m/s -> Turtle (Fluid)
                 showFluidState('turtle', 'Turtle (Reading...)', 'text-green-400');
-            } else {
-                // Too slow, back to Pokeball
-                showFluidState('pokeball', 'Pokeball', 'text-blue-400');
+                return;
             }
+            
+            // Dacă e prea încet, Pokeball
+            showFluidState('pokeball', 'Pokeball', 'text-blue-400');
         }
       }
 
+      // --- FLUID STATE (Fără Timer - Turtle/Pokeball) ---
       function showFluidState(modelName, statusText, colorClass) {
         if (models[modelName].getAttribute('visible') === 'true') return;
-        
+
         for (let key in models) {
             if (models[key]) models[key].setAttribute('visible', 'false');
         }
@@ -209,6 +242,7 @@
         statusAnimal.className = colorClass + " font-bold";
       }
 
+      // --- LOCKED STATE (Cu Timer 3s - Rabbit/Charmander/Bulbasaur) ---
       function activateLock(modelName, statusText, colorClass) {
         for (let key in models) {
             if (models[key]) models[key].setAttribute('visible', 'false');
@@ -220,6 +254,7 @@
 
         isLocked = true;
         if (lockTimer) clearTimeout(lockTimer);
+        
         lockTimer = setTimeout(() => {
             resetToPokeball();
         }, LOCK_TIME);
