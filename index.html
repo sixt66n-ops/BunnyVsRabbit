@@ -70,7 +70,7 @@
         gltf-model="#pokeball-model" 
         position="0 -0.5 -2.5" 
         scale="0.8 0.8 0.8"
-        rotation="0 220 0"
+        rotation="0 200 0"
         visible="true">
       </a-entity>
 
@@ -85,9 +85,9 @@
       <a-entity
         id="rabbit"
         gltf-model="#rabbit-model"
-        scale="0.001 0.001 0.001"
+        scale="0.009 0.009 0.009"
         position="0 -0.5 -2.5"
-        rotation="0 0 0" 
+        rotation="0 180 0" 
         visible="false">
       </a-entity>
 
@@ -95,8 +95,8 @@
         id="charmander" 
         gltf-model="#charmander-model" 
         position="0 -0.6 -2.5" 
-        scale="0.3 0.3 0.3"
-        rotation="0 180 0"
+        scale="0.8 0.8 0.8"
+        rotation="0 140 0"
         visible="false">
       </a-entity>
 
@@ -104,7 +104,7 @@
         id="bulbasaur" 
         gltf-model="#bulbasaur-model" 
         position="0 -0.6 -2.5" 
-        scale="0.3 0.3 0.3"
+        scale="0.8 0.8 0.8"
         rotation="0 180 0"
         visible="false">
       </a-entity>
@@ -116,7 +116,7 @@
     window.addEventListener('load', () => {
       // --- Configuration ---
       const TURTLE_MIN = 2.0; 
-      const RABBIT_MIN = 5.0; 
+      const RABBIT_MIN = 3.0; 
       const VERTICAL_THRESHOLD = 5.0; 
       const DISPLAY_TIME = 5000; // 5 Seconds
 
@@ -203,37 +203,71 @@
         }
 
         // 2. Are we moving Horizontally?
-        else {
+    else {
+            // FAST SHAKE -> RABBIT (Lock)
             if (absX > RABBIT_MIN) {
-                showAnimal('rabbit', 'Rabbit (Fast!)', 'text-red-500');
-            } else if (absX > TURTLE_MIN) {
-                showAnimal('turtle', 'Turtle (Slow)', 'text-green-400');
+                activateLock('rabbit', 'Rabbit (Fast!)', 'text-red-500');
+                return;
+            } 
+            // SLOW SHAKE -> TURTLE (Fluid - NO LOCK)
+            else if (absX > TURTLE_MIN) {
+                showFluidState('turtle', 'Turtle (Reading...)', 'text-green-400');
+                return;
             }
         }
-      }
 
-      function showAnimal(modelName, statusText, colorClass) {
+        // --- DEFAULT: If no action, show Pokeball ---
+        showFluidState('pokeball', 'Pokeball', 'text-blue-400');
+    }
+
+    // --- LOGIC: FLUID STATE (No Timer) ---
+    // Used for Turtle and Pokeball. They appear/disappear instantly based on speed.
+    function showFluidState(modelName, statusText, colorClass) {
+        // Optimization: Don't do DOM updates if the model is already visible
+        if (models[modelName].getAttribute('visible') === 'true') return;
+
+        // Hide all
         for (let key in models) {
             if (models[key]) models[key].setAttribute('visible', 'false');
         }
+        // Show target
         if (models[modelName]) models[modelName].setAttribute('visible', 'true');
 
         statusAnimal.textContent = statusText;
         statusAnimal.className = colorClass + " font-bold";
+    }
 
+    // --- LOGIC: LOCKED STATE (With Timer) ---
+    // Used for Rabbit, Charmander, Bulbasaur.
+    function activateLock(modelName, statusText, colorClass) {
+        // Hide all
+        for (let key in models) {
+            if (models[key]) models[key].setAttribute('visible', 'false');
+        }
+        // Show target
+        if (models[modelName]) models[modelName].setAttribute('visible', 'true');
+
+        statusAnimal.textContent = statusText + " (Locked)";
+        statusAnimal.className = colorClass + " font-bold";
+
+        // Enable Lock
         isLocked = true;
+        
+        // Start Timer
         if (lockTimer) clearTimeout(lockTimer);
-        lockTimer = setTimeout(() => resetToPokeball(), DISPLAY_TIME);
-      }
+        lockTimer = setTimeout(() => {
+            unlockAndReset();
+        }, LOCK_TIME);
+    }
 
-      function resetToPokeball() {
+    function unlockAndReset() {
         if (lockTimer) clearTimeout(lockTimer);
         isLocked = false;
-        for (let key in models) if (models[key]) models[key].setAttribute('visible', 'false');
-        if (models.pokeball) models.pokeball.setAttribute('visible', 'true');
-        statusAnimal.textContent = 'Pokeball (Ready)';
-        statusAnimal.className = "text-blue-400 font-bold";
-      }
+        
+        // Reset visually to Pokeball
+        showFluidState('pokeball', 'Pokeball (Ready)', 'text-blue-400');
+    }
+
     });
   </script>
 </body>
