@@ -10,7 +10,6 @@
 
   <style>
     #ar-scene { display: none; }
-    /* Invisible layer to catch clicks anywhere on screen */
     #click-layer {
       position: absolute;
       top: 0; left: 0;
@@ -36,11 +35,11 @@
     <div id="start-container" class="text-center pointer-events-auto">
       <h1 class="text-3xl font-bold mb-4">Pokemon AR</h1>
       <p class="text-lg mb-6 max-w-md text-left">
-        ↔️ <b>Slow Shake (1-3):</b> Turtle<br>
-        ↔️ <b>Fast Shake (>3):</b> Rabbit<br>
-        ⬆️ <b>Punch Up:</b> Charmander<br>
-        ⬇️ <b>Punch Down:</b> Bulbasaur<br>
-        👆 <b>Tap Screen:</b> Reset to Pokeball
+        ↔️ <b>Shake (1-3 m/s):</b> Turtle (Fluid)<br>
+        ↔️ <b>Fast (>3 m/s):</b> Rabbit (Lock 3s)<br>
+        ⬆️ <b>Punch Up:</b> Charmander (Lock 3s)<br>
+        ⬇️ <b>Punch Down:</b> Bulbasaur (Lock 3s)<br>
+        👆 <b>Tap Screen:</b> Reset
       </p>
       <button id="start-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-all">
         Start Game
@@ -115,10 +114,10 @@
   <script>
     window.addEventListener('load', () => {
       // --- Configuration ---
-      const TURTLE_MIN = 2.0; 
+      const TURTLE_MIN = 1.0; 
       const RABBIT_MIN = 3.0; 
       const VERTICAL_THRESHOLD = 5.0; 
-      const DISPLAY_TIME = 5000; // 5 Seconds
+      const LOCK_TIME = 3000; // 3 Seconds
 
       // --- Elements ---
       const startButton = document.getElementById('start-button');
@@ -128,7 +127,6 @@
       const clickLayer = document.getElementById('click-layer');
       const arScene = document.getElementById('ar-scene');
       
-      // Model Dictionary
       const models = {
         pokeball: document.getElementById('pokeball'),
         turtle: document.getElementById('turtle'),
@@ -172,6 +170,7 @@
       }
 
       function handleMotion(event) {
+        // If locked (Rabbit/Charmander/Bulbasaur active), ignore all motion
         if (isLocked) return;
 
         const acc = event.acceleration; 
@@ -192,38 +191,40 @@
         if (absY > absX) {
             
             if (y > VERTICAL_THRESHOLD) {
-                showAnimal('charmander', 'Charmander!', 'text-orange-500');
+                // Punch UP -> Charmander (Locked)
+                activateLock('charmander', 'Charmander!', 'text-orange-500');
+                return;
             } else if (y < -VERTICAL_THRESHOLD) {
-                showAnimal('bulbasaur', 'Bulbasaur!', 'text-green-600');
+                // Punch DOWN -> Bulbasaur (Locked)
+                activateLock('bulbasaur', 'Bulbasaur!', 'text-green-600');
+                return;
             }
             
-            // If moving vertically but not fast enough yet, STOP here.
-            // This prevents the "Turtle" from appearing while punching up.
-            if (absY > 2.0) return;
+            // If moving vertically but slow, show Pokeball (Don't show turtle)
+            showFluidState('pokeball', 'Pokeball', 'text-blue-400');
         }
 
         // 2. Are we moving Horizontally?
-    else {
-            // FAST SHAKE -> RABBIT (Lock)
+        else {
             if (absX > RABBIT_MIN) {
+                // > 3.0 m/s -> Rabbit (Locked)
                 activateLock('rabbit', 'Rabbit (Fast!)', 'text-red-500');
                 return;
             } 
-            // SLOW SHAKE -> TURTLE (Fluid - NO LOCK)
             else if (absX > TURTLE_MIN) {
+                // 1.0 - 3.0 m/s -> Turtle (Fluid)
                 showFluidState('turtle', 'Turtle (Reading...)', 'text-green-400');
                 return;
             }
+            
+            // If speed is < 1.0, fall through to default
+            showFluidState('pokeball', 'Pokeball', 'text-blue-400');
         }
+      }
 
-        // --- DEFAULT: If no action, show Pokeball ---
-        showFluidState('pokeball', 'Pokeball', 'text-blue-400');
-    }
-
-    // --- LOGIC: FLUID STATE (No Timer) ---
-    // Used for Turtle and Pokeball. They appear/disappear instantly based on speed.
-    function showFluidState(modelName, statusText, colorClass) {
-        // Optimization: Don't do DOM updates if the model is already visible
+      // --- FLUID STATE (Updates constantly, No Timer) ---
+      function showFluidState(modelName, statusText, colorClass) {
+        // Optimization: Don't redraw if already visible
         if (models[modelName].getAttribute('visible') === 'true') return;
 
         // Hide all
@@ -235,11 +236,10 @@
 
         statusAnimal.textContent = statusText;
         statusAnimal.className = colorClass + " font-bold";
-    }
+      }
 
-    // --- LOGIC: LOCKED STATE (With Timer) ---
-    // Used for Rabbit, Charmander, Bulbasaur.
-    function activateLock(modelName, statusText, colorClass) {
+      // --- LOCKED STATE (With Timer) ---
+      function activateLock(modelName, statusText, colorClass) {
         // Hide all
         for (let key in models) {
             if (models[key]) models[key].setAttribute('visible', 'false');
@@ -252,22 +252,21 @@
 
         // Enable Lock
         isLocked = true;
-        
-        // Start Timer
         if (lockTimer) clearTimeout(lockTimer);
+        
+        // Unlock after 3 seconds
         lockTimer = setTimeout(() => {
-            unlockAndReset();
+            resetToPokeball();
         }, LOCK_TIME);
-    }
+      }
 
-    function unlockAndReset() {
+      function resetToPokeball() {
         if (lockTimer) clearTimeout(lockTimer);
         isLocked = false;
         
         // Reset visually to Pokeball
         showFluidState('pokeball', 'Pokeball (Ready)', 'text-blue-400');
-    }
-
+      }
     });
   </script>
 </body>
